@@ -70,6 +70,8 @@ Export-WallpaperImages -Output D:\wallpapers
   actual `.pkg`/`.tex` extraction. It is **not** bundled here; it is downloaded
   on first use (or provide your own copy).
 - This project is released under the [MIT License](LICENSE).
+- This is my first AI-assisted project.
+Any feedback, suggestions and issues are welcome.
 
 ## Disclaimer
 
@@ -136,6 +138,7 @@ Export-WallpaperImages -Output D:\wallpapers
 - [RePKG](https://github.com/notscuffed/repkg)（作者 NotScuffed，MIT 协议）负责实际的 `.pkg`/`.tex`
   提取，本仓库**不捆绑**它，首次使用时自动下载（也可自备一份）。
 - 本项目采用 [MIT 协议](LICENSE)。
+- 这是我的第一个借助AI开发的项目，欢迎提交反馈、建议与问题。
 
 ### 免责声明
 
