@@ -1,0 +1,11 @@
+# temp / build artifacts
+*.tmp
+app.ico
+
+# user-specific override file (contains local paths)
+WallpaperExporter.ini
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
