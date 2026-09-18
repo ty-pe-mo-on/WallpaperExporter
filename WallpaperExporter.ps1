@@ -1,9 +1,9 @@
-# WallpaperExporter - extract only the main artwork images from
+﻿# WallpaperExporter - extract only the main artwork images from
 # Wallpaper Engine (Steam) wallpapers into one flat folder.
 #
 # Usage:
 #   Double-click WallpaperExporter.exe, or run:
-#     powershell -File WallpaperExporter.ps1 [-NoPause]
+#     powershell -File WallpaperExporter.ps1 [-NoPause] [-NoPrompt]
 #
 # What counts as "main artwork":
 #   Each wallpaper is unpacked and its scene.json / material jsons are read to
@@ -23,19 +23,38 @@
 # RePKG (MIT license, https://github.com/notscuffed/repkg) does the actual
 # unpacking. If it is not found it is downloaded automatically.
 
-param([switch]$NoPause)
+param([switch]$NoPause, [switch]$NoPrompt)
 
 $ErrorActionPreference = 'Continue'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 
-$scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$scriptDir = $null
+if ($PSScriptRoot) {
+    $scriptDir = $PSScriptRoot
+} elseif ($PSCommandPath) {
+    $scriptDir = Split-Path -Parent $PSCommandPath
+} else {
+    try {
+        $scriptDir = Split-Path -Parent ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
+    } catch {
+        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    }
+}
 $appDir = Join-Path $env:LOCALAPPDATA 'WallpaperExporter'
 $logDir = Join-Path $appDir 'logs'
 $idFile = Join-Path $appDir 'exported_ids.txt'
 $repkgToolDir = Join-Path $appDir 'tools'
 
+# initialize log directory early so header/errors are recorded too
+foreach ($d in @($appDir, $logDir)) {
+    if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+}
+$script:logFile = Join-Path $logDir ("run_" + (Get-Date -Format 'yyyyMMdd_HHmmss') + ".log")
+Get-ChildItem $logDir -Filter 'run_*.log' -File -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending | Select-Object -Skip 10 |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+
 # ---------------- console / log helpers ----------------
-$script:logFile = $null
 function Log([string]$msg) {
     Write-Host $msg
     if ($script:logFile) {
@@ -133,6 +152,58 @@ function Get-RepkgFromGithub {
     }
 }
 
+function Set-IniOutput([string]$path) {
+    try {
+        $lines = @()
+        if (Test-Path -LiteralPath $iniPath) { $lines = @(Get-Content $iniPath -Encoding UTF8 -ErrorAction SilentlyContinue) }
+        $out = @()
+        $found = $false
+        $inSection = $false
+        foreach ($line in $lines) {
+            if ($line -match '^\s*\[') { $inSection = ($line -match '^\s*\[Paths\]\s*$') }
+            if ($inSection -and $line -match '^\s*Output\s*=') {
+                $out += ("Output=" + $path)
+                $found = $true
+            } else {
+                $out += $line
+            }
+        }
+        if (-not $found) {
+            if (-not ($out -contains '[Paths]')) { $out += '[Paths]' }
+            $out += ("Output=" + $path)
+        }
+        $out | Set-Content -LiteralPath $iniPath -Encoding UTF8
+    } catch {
+        # read-only location: keep the in-memory choice for this run only
+    }
+}
+
+function Pick-OutputFolder([string]$defaultPath) {
+    # 1) try a native folder picker dialog
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        if (-not (Test-Path -LiteralPath $defaultPath)) {
+            New-Item -ItemType Directory -Path $defaultPath -Force | Out-Null
+        }
+        $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+        $dlg.Description = 'Select output folder for wallpaper images / 选择壁纸图片输出文件夹'
+        $dlg.SelectedPath = $defaultPath
+        $dlg.ShowNewFolderButton = $true
+        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $chosen = $dlg.SelectedPath
+            if ($chosen) { return $chosen }
+        }
+    } catch {
+        # dialog unavailable (e.g. non-STA thread) -> fall through to console prompt
+    }
+    # 2) console fallback
+    Write-Host ''
+    Write-Host ('Default output: ' + $defaultPath)
+    $ans = Read-Host 'Enter an output folder, or press Enter to use the default'
+    if ($ans -and $ans.Trim()) { return $ans.Trim() }
+    return $defaultPath
+}
+
 function Resolve-Paths {
     $workshop = Get-IniValue $iniPath 'Paths' 'Workshop'
     if (-not $workshop) { $workshop = Find-WorkshopDir }
@@ -145,7 +216,13 @@ function Resolve-Paths {
     if (-not $output) {
         $pics = [Environment]::GetFolderPath('MyPictures')
         if ([string]::IsNullOrWhiteSpace($pics)) { $pics = Join-Path $env:USERPROFILE 'Pictures' }
-        $output = Join-Path $pics 'wallpaper'
+        $default = Join-Path $pics 'wallpaper'
+        if ($NoPrompt) {
+            $output = $default
+        } else {
+            $output = Pick-OutputFolder $default
+            Set-IniOutput $output
+        }
     }
 
     return @{ Workshop = $workshop; Repkg = $repkg; Output = $output }
@@ -179,14 +256,6 @@ if (-not $repkg -or -not (Test-Path -LiteralPath $repkg)) {
     exit 1
 }
 if (-not (Test-Path -LiteralPath $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
-
-foreach ($d in @($appDir, $logDir)) {
-    if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
-}
-$script:logFile = Join-Path $logDir ("run_" + (Get-Date -Format 'yyyyMMdd_HHmmss') + ".log")
-Get-ChildItem $logDir -Filter 'run_*.log' -File -ErrorAction SilentlyContinue |
-    Sort-Object LastWriteTime -Descending | Select-Object -Skip 10 |
-    Remove-Item -Force -ErrorAction SilentlyContinue
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $tmp = Join-Path $env:TEMP ('wp_export_' + [guid]::NewGuid().ToString('N').Substring(0, 8))
