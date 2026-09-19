@@ -5,6 +5,11 @@
 #   Double-click WallpaperExporter.exe, or run:
 #     powershell -File WallpaperExporter.ps1 [-NoPause] [-NoPrompt]
 #
+#   Full re-export (clear the output folder and the record, then export all):
+#     WallpaperExporter.exe -Reset          (asks for confirmation)
+#     WallpaperExporter.exe -Reset -Force   (no confirmation)
+#   The 重置并重导.bat next to the exe runs exactly that.
+#
 # What counts as "main artwork":
 #   Each wallpaper is unpacked and its scene.json / material jsons are read to
 #   learn which textures the wallpaper really references. Layers that cover the
@@ -23,7 +28,7 @@
 # RePKG (MIT license, https://github.com/notscuffed/repkg) does the actual
 # unpacking. If it is not found it is downloaded automatically.
 
-param([switch]$NoPause, [switch]$NoPrompt)
+param([switch]$NoPause, [switch]$NoPrompt, [switch]$Reset, [switch]$Force)
 
 Add-Type -AssemblyName System.Drawing
 $ErrorActionPreference = 'Continue'
@@ -260,6 +265,37 @@ if (-not $repkg -or -not (Test-Path -LiteralPath $repkg)) {
     exit 1
 }
 if (-not (Test-Path -LiteralPath $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
+
+# ---------------- optional full reset (-Reset) ----------------
+# Clears every image in the output folder and deletes the exported-ID record,
+# so the run that follows is a complete re-export. Asks for confirmation unless
+# -Force is given too.
+if ($Reset) {
+    if (-not $Force) {
+        Write-Host ''
+        Write-Host ('Reset will delete every image in: ' + $dst)
+        Write-Host 'and forget which wallpapers were already exported, then re-export everything.'
+        $ans = Read-Host '输入 Y 回车继续 / Type Y to continue (anything else cancels)'
+        if (-not $ans -or $ans.Trim().ToUpper() -ne 'Y') {
+            Log 'Reset cancelled.'
+            if (-not $NoPause) { Write-Host ''; Read-Host 'Press Enter to exit' | Out-Null }
+            exit 0
+        }
+    }
+    Log '[Reset] clearing the output folder ...'
+    $removed = 0
+    Get-ChildItem -LiteralPath $dst -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -match '^\.(jpg|jpeg|png|bmp|webp)$' } |
+        ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+            if (-not (Test-Path -LiteralPath $_.FullName)) { $removed++ }
+        }
+    Log ('[Reset] removed ' + $removed + ' image(s)')
+    if (Test-Path -LiteralPath $idFile) {
+        Remove-Item -LiteralPath $idFile -Force -ErrorAction SilentlyContinue
+        Log '[Reset] deleted the exported-ID record'
+    }
+}
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $tmp = Join-Path $env:TEMP ('wp_export_' + [guid]::NewGuid().ToString('N').Substring(0, 8))

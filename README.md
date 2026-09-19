@@ -52,8 +52,13 @@ Output=D:\...\wallpaper
 ```
 
 Re-running is safe and incremental — already-exported wallpapers are skipped.
-To force a full re-export, empty the output folder and delete
-`%LOCALAPPDATA%\WallpaperExporter\exported_ids.txt`.
+For a full re-export (clear the output folder and the record, then export every
+wallpaper again) run the exe with `-Reset`:
+
+```
+WallpaperExporter.exe -Reset          asks for confirmation first
+WallpaperExporter.exe -Reset -Force   no confirmation
+```
 
 ## PowerShell module (optional)
 
@@ -121,8 +126,13 @@ Repkg=C:\...\RePKG.exe
 Output=D:\...\wallpaper
 ```
 
-重复运行安全且增量，已导出的壁纸自动跳过。要全量重导：清空输出文件夹并删除
-`%LOCALAPPDATA%\WallpaperExporter\exported_ids.txt`。
+重复运行安全且增量，已导出的壁纸自动跳过。要全量重导（清空输出文件夹和导出记录，
+再从头导出所有壁纸），用 `-Reset` 参数运行：
+
+```
+WallpaperExporter.exe -Reset          会先询问确认
+WallpaperExporter.exe -Reset -Force   不询问，直接重置
+```
 
 ### 可选 PowerShell 模块
 
