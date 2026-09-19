@@ -25,12 +25,16 @@
 
 param([switch]$NoPause, [switch]$NoPrompt)
 
+Add-Type -AssemblyName System.Drawing
 $ErrorActionPreference = 'Continue'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 
 $scriptDir = $null
 if ($PSScriptRoot) {
     $scriptDir = $PSScriptRoot
+} elseif ($ScriptRoot) {
+    # ps2exe sets $ScriptRoot to the compiled exe's own folder
+    $scriptDir = $ScriptRoot
 } elseif ($PSCommandPath) {
     $scriptDir = Split-Path -Parent $PSCommandPath
 } else {
@@ -313,6 +317,12 @@ function Get-TexRefs([string]$dir) {
     }
     return $set
 }
+
+# ---- main-artwork filter thresholds (keep identical to desktop core rules) ----
+#   $minLongSide: drop images whose longest side is shorter than this (tiny assets)
+#   $minFullSide: a full-frame layer must have its long side >= this to qualify
+$minLongSide = 1024
+$minFullSide = 1920
 
 function Select-MainImages([string]$fromDir) {
     $cand = @(Get-ChildItem $fromDir -Recurse -Include *.jpg, *.jpeg, *.png, *.bmp -File -ErrorAction SilentlyContinue |

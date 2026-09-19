@@ -16,7 +16,7 @@ keeps the 1–4 that cover the whole frame (the background and full-canvas art):
 
 ```
 Before (naive extract):  177 images across ~50 wallpapers
-After  (WallpaperExporter):   ~1 image per wallpaper (full-frame art only)
+After  (WallpaperExporter):   73 images across 58 wallpapers (1–5 full-frame layers each)
 ```
 
 ## How it works
@@ -94,7 +94,7 @@ Please do not redistribute the extracted images.
 
 ```
 普通提取：约 50 个壁纸 → 177 张杂图
-本工具：  → 每壁纸约 1 张主图（仅全屏美术层）
+本工具：  58 个壁纸 → 73 张主图（每壁纸 1–5 张全屏层）
 ```
 
 ### 工作原理
